@@ -27,7 +27,7 @@ app.use('/books', books);
 
 (async () => {
 
-  await sequelize.sync({ force: true });
+  await sequelize.sync();
 
   try {
     await sequelize.authenticate();
@@ -46,7 +46,7 @@ app.use('/books', books);
   will not catch them. Because of that, you need a specific middleware function to handle them.
   We dont need to pass it to next because there's nothing else that needs to be done.
  */
- app.use((req, res, next) => {
+ app.use((req, res) => {
   console.log('404 error handler called');
   const err = new Error();
   err.status = 404;
@@ -61,17 +61,17 @@ app.use('/books', books);
 */
 app.use((err,req,res,next) => {
   console.log("Global error handler")
-  /*
-  if (err.status === 404){
+  
+  /*if (err.status === 404){
     console.log('404 Global error handler called');
-    res.render('not-found',{err});
+    res.status(404).render('not-found',{err});
   } else {
-      res.status(err.status || 500);
       err.message = err.message || "Oops!  It looks like something went wrong on the server."
-      res.render('error', {err});
+      res.status(err.status || 500).render('error', {err});
   }*/
   
-  if (!err.status) {          
+  if (!err.status) { 
+    console.log(err.status);         
     err.status = 500;
     err.message = 'Oops!  It looks like something went wrong on the server.'
     res.render('error', { err })
