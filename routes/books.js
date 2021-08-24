@@ -1,6 +1,7 @@
 var express = require('express');
 var router = express.Router();
 const Book = require('../models').Book; 
+const { Op } = require('sequelize');
 
 
 /* 
@@ -25,11 +26,20 @@ function asyncHandler(callback){
 // Show the full list of books. 
 router.get('/', asyncHandler( async (req, res) => {
   
-    const books = await Book.findAll({
+  const limit = 5;
+  const page = req.query.page || 1; // why this???
+
+  const { count, rows:books } = await Book.findAndCountAll({
+    order: [['title', 'ASC']],
+    limit,
+    offset: (page - 1) * limit
+  });
+  const numOfPages = Math.ceil(count / 5); 
+    /*const books = await Book.findAll({
     attributes: ['id', 'title', 'author', 'genre', 'year'],
     order: [['title', 'ASC']],
-    });
-    res.render("index", { books, title: 'Library' });
+    });*/
+    res.render("index", { books, title: 'Library', numOfPages });
  
 }));
 
@@ -67,6 +77,68 @@ router.post('/new', asyncHandler( async (req, res) => {
       }
  
   }
+}));
+
+const getBooks = async(searchValue, page, limit) => {
+
+  const {count, rows: books} = await Book.findAndCountAll({
+    where: {
+     [Op.or]: {
+       title: {
+         [Op.like]: `%${searchValue}%`
+       },
+       author: {
+        [Op.like]: `%${searchValue}%`
+      },
+      genre: {
+        [Op.like]: `%${searchValue}%`
+      },
+      year: {
+        [Op.like]: `%${searchValue}%`
+      }
+     }
+    },
+    order: [["title", "ASC"]], 
+    limit,
+    offset: (page - 1) * limit
+  });
+  return {count, books}
+
+}
+
+/* 
+  Search  * this has to be above the '/books/:id' route 
+  The two paths are consider almost the 'same' as far express is concerned: /books/:id and /books/search.
+  Since /books/:id is defined first and uses a parameter, :id, the parameter could be anything, such as the string search.
+  Express will treats it routes like a switch-statement, and when traversing the routes you've given it, it stops at /books/:id since /books/search is considered the same.
+  You'll want to move the route above the route that defines /books/:id.
+*/
+
+router.get('/search', asyncHandler( async (req, res) => {
+
+  // same as const searchValue = req.query.searchValue;
+  const { searchValue } = req.query; 
+
+  // if searchvalue is empty, redirect to homepage
+  if (!searchValue){
+    res.redirect('/books');
+  }
+  // initialize page to 1 at first, then, get it from the query string
+  const page = req.query.page || 1; 
+
+  const limit = 5; // limit of 5 books per page.s
+  const {count , books} = await getBooks(searchValue, page, limit);
+
+  //if not results returned from getbooks(if count is 0), render 'books-not-found' template
+  if (count > 0){
+    console.log(count, books)
+    const numOfPages = Math.ceil(count / limit); // get the number of pages based on total book counts and the limit books per page
+    res.render('index', { books, title: "Search",numOfPages, searchValue})
+  }
+  else {
+    res.render("books/books-not-found", {title: "Search"})
+  }
+
 }));
 
 /* 
@@ -133,6 +205,5 @@ router.post('/:id/delete', asyncHandler( async (req, res, next) => {
     next();
   }
 }));
-
 
 module.exports = router;

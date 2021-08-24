@@ -71,7 +71,7 @@ app.use((err,req,res,next) => {
   }*/
   
   if (!err.status) { 
-    console.log(err.status);         
+    //console.log(err.status);         
     err.status = 500;
     err.message = 'Oops!  It looks like something went wrong on the server.'
     res.render('error', { err })
